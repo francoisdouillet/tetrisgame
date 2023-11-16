@@ -1,3 +1,5 @@
+
+
 #tetris-board {
   width: 300px; /* Adjust width as needed */
   height: 600px; /* Adjust height as needed */
@@ -11,7 +13,65 @@
 #tetris-board div {
   border: 1px solid #ddd;
 }
+.title {
+  text-align: center;
+  width: 100%;
+  font-size: xx-large;
+  font-family: bold;
+  
+}
+
+.container {
+display: flex ;
+justify-content: center;
+flex-wrap: wrap;
+width: full;
+}
 
 .tetromino {
     background-color: blue; /* Or any color that stands out on your grid */
+}
+
+ .I {
+  background-color: #e74c3c; /* Red color for I Tetromino */
+}
+
+.J {
+  background-color: #2ecc71; /* Green color for J Tetromino */
+}
+
+.L {
+  background-color: #f39c12; /* Orange color for L Tetromino */
+}
+
+.O {
+  background-color: #f1c40f; /* Yellow color for O Tetromino */
+}
+
+.S {
+  background-color: #e67e22; /* Dark orange color for S Tetromino */
+}
+
+.T {
+  background-color: #9b59b6; /* Purple color for T Tetromino */
+}
+
+.Z {
+  background-color: #1abc9c; /* Turquoise color for Z Tetromino */
+} 
+
+
+#score-board {
+  margin-top: 10px;
+  height: 30px;
+  font-size: 20px;
+  text-align: center; /* Center the scoreboard text */
+  background-color: #f8f8f8; /* Light background for the scoreboard */
+  padding: 10px;
+  border-radius: 5px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); /* Soft shadow for depth */
+}
+
+#score {
+  font-weight: bold; /* Make the score stand out */
 }

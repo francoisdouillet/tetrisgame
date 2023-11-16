@@ -8,6 +8,8 @@ document.addEventListener("DOMContentLoaded", () => {
   spawnTetromino();
 });
 
+
+let score = 0
 // Formes Tetris
 const I_Tetromino = [
   [0, 0, 0, 0],
@@ -53,17 +55,19 @@ const Z_Tetromino = [
 
 const tetrominoes = [I_Tetromino, J_Tetromino, L_Tetromino, O_Tetromino, S_Tetromino, T_Tetromino, Z_Tetromino];
 
-// Rotation function
+
+
+// Fonction de rotation
 function rotate(tetromino) {
-  // Create a deep copy of the tetromino
+  // Créer une copie profonde du tétrimino
   let copy = JSON.parse(JSON.stringify(tetromino));
 
-  // Reverse each row to get a clockwise rotation 
+  // Inverser chaque rangée pour obtenir une rotation dans le sens horaire
   for (let i = 0; i < copy.length; i++) {
       copy[i].reverse();
   }
 
-  // Swap rows and columns
+  // Échanger les rangées et les colonnes
   for (let i = 0; i < copy.length; i++) {
       for (let j = 0; j < i; j++) {
           [copy[i][j], copy[j][i]] = [copy[j][i], copy[i][j]];
@@ -99,7 +103,7 @@ console.log("Rotated I Tetromino:", rotate(I_Tetromino));
 console.log("Original Z Tetromino:", Z_Tetromino);
 console.log("Rotated Z Tetromino:", rotate(Z_Tetromino));
 
-// Get random tetromino 
+//  random tetromino 
 function getRandomTetromino() {
   const randomIndex = Math.floor(Math.random() * tetrominoes.length);
   return tetrominoes[randomIndex];
@@ -111,20 +115,27 @@ let currentTetromino;
 let currentRotation = 0; // This will track the current rotation state of the Tetromino
 let currentPosition = 4; // Adjust this to position the Tetromino at the top center
 
+
+
 function drawTetromino() {
   const cells = document.querySelectorAll('#tetris-board div');
 
     currentTetromino.forEach((row, y) => {
         row.forEach((value, x) => {
             if (value === 1) {
-                cells[currentPosition + y * 10 + x].classList.add('tetromino');
+              if (cells[currentPosition + y * 10 + x].classList.contains('locked')) {
+                console.log('Tetromino GAME OVER !!!!!!');
+                return;
+              }            
+                cells[currentPosition + y * 10 + x].classList.add('tetromino')
             }
         });
     });
 }
 
 function spawnTetromino() {
-    currentTetromino = getRandomTetromino();
+     currentTetromino = getRandomTetromino();
+  
     currentRotation = 0; // Reset rotation state for new Tetromino
     currentPosition = 4; // Adjust this value to position the new Tetromino at the top center
 
@@ -147,12 +158,6 @@ function moveDown() {
   undrawTetromino(); // Remove the Tetromino from its current position
   currentPosition += 10; // Move down one row in a 10x20 grid
   drawTetromino(); // Draw the Tetromino in the new position
-  if (checkCollision()) {
-    console.log('test');
-      lockTetromino();
-      clearLines()
-      spawnTetromino();
-  }
 }
 
 function checkCollision() {
@@ -187,49 +192,69 @@ function lockTetromino() {
   });
 }
 
+
+
 function clearLines() {
   let linesCleared = 0;
   const cells = Array.from(document.querySelectorAll('#tetris-board div'));
+  
   for (let i = 0; i < 20; i++) {
     const rowStart = i * 10;
     const row = cells.slice(rowStart, rowStart + 10);
 
     if (row.every(cell => cell.classList.contains('locked'))) {
       linesCleared++;
-      row.forEach(cell => cell.remove()); // Remove cells from DOM
-      const newCells = Array.from({ length: 10 }, () => {
-        const newCell = document.createElement('div');
-        board.prepend(newCell);
-        return newCell;
-      });
-      cells.unshift(...newCells); // Add new cells to the `cells` collection
+      // Clear the full line
+      row.forEach(cell => cell.classList.remove('locked', 'tetromino'));
+
+      // Move down all the rows above the cleared line
+      for (let j = i; j >= 0; j--) {
+        const currentRowStart = j * 10;
+        const aboveRowStart = (j - 1) * 10;
+
+        cells.slice(aboveRowStart, aboveRowStart + 10).forEach((cell, index) => {
+          if (cell.classList.contains('locked')) {
+            cells[currentRowStart + index].classList.add('locked', 'tetromino');
+            cell.classList.remove('locked', 'tetromino');
+          }
+        });
+      }
+
+      // Adjust index to recheck the same row in the next iteration (since all rows above have shifted down)
+      i--;
     }
   }
 
-  // After clearing lines, shift all upper rows down
+  // Handle score update or other game logic if lines are cleared
   if (linesCleared > 0) {
-    shiftDownCells(cells, linesCleared);
-  }
-
-  if (linesCleared > 0) {
-    // Update score or game speed
+   
+    // Update score or game speed, if needed
+    score += calculateScore(linesCleared);
+    const scoreElement = document.getElementById('score')
+    scoreElement.textContent = score;
+    
+    console.log(calculateScore(linesCleared));
   }
 }
 
-// Shifts the cells above the cleared line down
-function shiftDownCells(cells, linesCleared) {
-  // Start from the first row above the cleared line and move each cell down
-  for (let i = (linesCleared * 10) - 1; i >= 0; i--) {
-    if (cells[i].classList.contains('locked')) {
-      cells[i].classList.remove('locked');
-      cells[i + (10 * linesCleared)].classList.add('locked');
-    }
+function calculateScore(lines) {
+  switch (lines) {
+    case 1:
+      return 100; // Single line
+    case 2:
+      return 300; // Double line
+    case 3:
+      return 500; // Triple line
+    case 4:
+      return 800; // Tetris
+    default:
+      return 0;
   }
 }
 
-function checkGameOver() {
-  // Check if there's space for a new Tetromino to spawn
-  // Return true if the game is over, false otherwise
+
+function GameOver() {
+ 
 }
 
 // CLAVIER
@@ -248,20 +273,37 @@ document.addEventListener('keydown', event => {
 }
 
 });
+function checkCollisionAfterMove(direction) {
+  const shift = direction === 'left' ? -1 : 1; // -1 for left, 1 for right
+  const cells = document.querySelectorAll('#tetris-board div');
+
+  return currentTetromino.some((row, y) => {
+    return row.some((cell, x) => {
+      if (cell === 1) {
+        let nextPos = currentPosition + x + y * 10 + shift; // Calculate next position based on direction
+        // Check if next position is within board boundaries
+        if (nextPos >= 0 && nextPos < cells.length) {
+          // Check for collision with locked tetromino
+          if (cells[nextPos].classList.contains('locked')) {
+            return true;
+          }
+        }
+      }
+      return false;
+    });
+  });
+}
 
 function moveLeft() {
   undrawTetromino();
 
-  // Vérifier si le tétrimino est au bord gauche
+  // Check if the tetromino is at the left edge or if there's a collision on the left
   const isAtLeftEdge = currentTetromino.some(row => 
-      row.some((cell, x) => cell === 1 && (currentPosition + x) % 10 === 0)
+    row.some((cell, x) => cell === 1 && (currentPosition + x) % 10 === 0)
   );
 
-  if (!isAtLeftEdge) currentPosition -= 1;
-
-  // Vérifier la collision après le déplacement
-  if (checkCollisionAfterMove()) {
-      currentPosition += 1;
+  if (!isAtLeftEdge && !checkCollisionAfterMove('left')) {
+    currentPosition -= 1; // Move left by one position
   }
 
   drawTetromino();
@@ -276,7 +318,7 @@ function moveRight() {
   );
 
   if (!isAtRightEdge) currentPosition += 1;
-
+  
   // Vérifier la collision après le déplacement
   if (checkCollisionAfterMove()) {
       currentPosition -= 1;
@@ -285,23 +327,16 @@ function moveRight() {
   drawTetromino();
 }
 function gameLoop() {  
-
   // Vérifier d'abord si le mouvement vers le bas est possible
-  console.log(checkCollision())
   if (checkCollision()) {
-    console.log('Condition checkCollisionGameLoop');
-      lockTetromino();  // Verrouille le tétrimino en position
-      clearLines()
-      // Nettoie les lignes complètes après le verrouillage
-      if (checkGameOver()) {
-          // Stoppe le jeu si la condition de fin de jeu est remplie
-      } else {
-          spawnTetromino(); // Fait apparaître un nouveau tétrimino
-      }
-  } else {
+    
+    lockTetromino();
+    clearLines()
+    spawnTetromino();
+} else {
       moveDown();  // Continue de déplacer le tétrimino vers le bas
   }
 }
 
-setInterval(gameLoop, 200); // Adjust timing as needed
+setInterval(gameLoop, 200); // Pour ajuster le temps
 
