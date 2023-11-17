@@ -1,7 +1,8 @@
+let gameBoard;
 document.addEventListener("DOMContentLoaded", () => {
-  const gameBoard = new GameBoard("tetris-board");
+  gameBoard = new GameBoard("tetris-board");
   gameBoard.spawnTetromino();
-  // Set up game loop and other event listeners
+  gameLoopInterval = setInterval(gameLoop, 1000); // Start the game loop
 });
 let score = 0
 // Formes Tetris
@@ -57,6 +58,10 @@ class GameBoard {
     this.score = 0;
     this.initBoard();
   }
+  
+  get firstLine() {
+    return this.cells.slice(0,10)
+  }
 
   initBoard() {
     for (let i = 0; i < 200; i++) {
@@ -66,73 +71,300 @@ class GameBoard {
     }
   }
 
-  spawnTetromino() {
-    // Logic to spawn a new tetromino
-    currentTetromino = getRandomTetromino();
+  gameOver() {
+    const modal = document.getElementById('gameOverModal');
+    const restartButton = document.getElementById('restartButton');
   
-    currentRotation = 0; // Reset rotation state for new Tetromino
-    currentPosition = 4; // Adjust this value to position the new Tetromino at the top center
+    // Display the modal
+    modal.style.display = 'block';
+    document.removeEventListener('keydown', handleKeydown)
+    clearInterval(gameLoopInterval)
+    // Handle restart button click
+    restartButton.addEventListener('click', () => {
+      // Close the modal
+      modal.style.display = 'none';
+  
+      // Reset the game state (you may need to implement a resetGame function)
+      gameBoard.resetGame(); // Implement a resetGame method in your GameBoard class
+    });
+  }
+  
 
-    // Draw the new Tetromino on the grid
-    drawTetromino();
+  spawnTetromino() {
+    this.currentTetromino = new Tetromino(getRandomTetromino(), this);
+    this.currentTetromino.draw();
+    if(this.checkCollision()) {
+      this.gameOver()
+    }
   }
 
-  // Other methods such as moveDown, checkCollision, clearLines, etc.
+
+  checkCollision() {
+    const cells = this.cells;
+    const shape = this.currentTetromino.shape;
+    const position = this.currentTetromino.currentPosition;
+  
+    return shape.some((row, y) => {
+      return row.some((cell, x) => {
+        if (cell === 1) {
+          let nextPos = (position.y + y + 1) * 10 + position.x + x;
+          if (nextPos >= 200 || cells[nextPos].classList.contains('locked')) {
+            return true;
+          }
+        }
+        return false;
+      });
+    });
+  }
+  checkCollisionAfterMove(tetromino, direction) {
+    const shift = direction === 'left' ? -1 : 1;
+    const shape = tetromino.shape;
+    const position = tetromino.currentPosition;
+
+    return shape.some((row, y) => {
+        return row.some((cell, x) => {
+            if (cell === 1) {
+                let nextPosX = position.x + x + shift;
+                let nextPosY = position.y + y;
+                let nextPos = nextPosY * 10 + nextPosX;
+
+                // Check if the next position is outside the game board boundaries
+                if (nextPosX < 0 || nextPosX > 9 || nextPosY >= 20 || 
+                    this.cells[nextPos].classList.contains('locked')) {
+                    return true;
+                }
+            }
+            return false;
+        });
+    });
+}
+  checkCollisionAfterRotate(tetromino) {
+    const shape = tetromino.shape;
+    const position = tetromino.currentPosition;
+
+    return shape.some((row, y) => {
+        return row.some((cell, x) => {
+            if (cell === 1) {
+                let nextPos = (position.y + y) * 10 + position.x + x;
+                if (nextPos < 0 || nextPos >= 200 || 
+                    nextPos % 10 === 0 || nextPos % 10 === 9 ||
+                    this.cells[nextPos].classList.contains('locked')) {
+                    return true;
+                }
+            }
+            return false;
+        });
+    });
+}
+
+  lockTetromino() {
+    // Updated to use the correct position and shape of the current Tetromino
+    const cells = this.cells;
+    const shape = this.currentTetromino.shape;
+    const position = this.currentTetromino.currentPosition;
+    shape.forEach((row, y) => {
+      row.forEach((value, x) => {
+        if (value === 1) {
+          let cellIndex = (position.y + y) * 10 + position.x + x;
+          if (cells[cellIndex]) {
+              cells[cellIndex].classList.add('locked', 'tetromino');
+          }
+        }
+      });
+    });
+  }
+
+  calculateScore(linesCleared) {
+    // Logic to update the score
+    switch (linesCleared) {
+      case 1:
+        return 100; // Single line
+      case 2:
+        return 300; // Double line
+      case 3:
+        return 500; // Triple line
+      case 4:
+        return 800; // Tetris
+      default:
+        return 0;
+    }
+  }
+
+  clearLines() {
+    // Logic to clear completed lines
+    let linesCleared = 0;
+    const cells = Array.from(document.querySelectorAll('#tetris-board div'));
+    
+    for (let i = 0; i < 20; i++) {
+      const rowStart = i * 10;
+      const row = cells.slice(rowStart, rowStart + 10);
+  
+      if (row.every(cell => cell.classList.contains('locked'))) {
+        linesCleared++;
+        // Clear the full line
+        row.forEach(cell => cell.classList.remove('locked', 'tetromino'));
+  
+        // Move down all the rows above the cleared line
+        for (let j = i; j >= 0; j--) {
+          const currentRowStart = j * 10;
+          const aboveRowStart = (j - 1) * 10;
+  
+          cells.slice(aboveRowStart, aboveRowStart + 10).forEach((cell, index) => {
+            if (cell.classList.contains('locked')) {
+              cells[currentRowStart + index].classList.add('locked', 'tetromino');
+              cell.classList.remove('locked', 'tetromino');
+            }
+          });
+        }
+  
+        // Adjust index to recheck the same row in the next iteration (since all rows above have shifted down)
+        i--;
+      }
+    }
+  
+    // Handle score update or other game logic if lines are cleared
+    if (linesCleared > 0) {
+     
+      // Update score or game speed, if needed
+      score += this.calculateScore(linesCleared);
+      const scoreElement = document.getElementById('score')
+      scoreElement.textContent = score;
+      
+    }
+  }
+
+  checkGameOver() {
+    // Check if the game is over (for example, if the first row is occupied)
+    console.log(this.firstLine)
+    return this.cells.slice(0, 10).some(cell => cell.classList.contains('locked'));
+  }
+  
+
+
+  resetGame() {
+    // Clear the board
+    this.cells.forEach((cell) => {
+      cell.classList.remove('locked', 'tetromino');
+    });
+
+    // Reset other properties
+    this.currentTetromino = null;
+    this.score = 0;
+    this.updateScoreDisplay(); // Implement this method to update the score display
+    // Any other properties that need to be reset
+
+    // Restart the game loop
+    clearInterval(gameLoopInterval);
+    this.spawnTetromino()
+    document.addEventListener('keydown', handleKeydown)
+    gameLoopInterval = setInterval(gameLoop, 1000);
+  }
+
+  updateScoreDisplay() {
+    // Implement this method to update the score display on the HTML page
+    const scoreElement = document.getElementById('score');
+    scoreElement.textContent = this.score;
+  }
+
 }
 
 class Tetromino {
-  constructor(shape) {
+  constructor(shape, gameBoard) {
     this.shape = shape;
+    this.gameBoard = gameBoard;
+    this.currentPosition = { x: 4, y: 0 };
     this.currentRotation = 0;
-    this.currentPosition = 4; // This might need to be adjusted based on your grid
   }
-
-  rotate() {
-    const originalPosition = currentPosition;
-    const rotatedTetromino = rotate(currentTetromino);
-    undrawTetromino();
-    currentTetromino = rotatedTetromino;
-  
-    const isAtLeftEdge = currentTetromino.some(row => row.some((cell, x) => cell === 1 && (currentPosition + x) % 10 === 0));
-    const isAtRightEdge = currentTetromino.some(row => row.some((cell, x) => cell === 1 && (currentPosition + x) % 10 === 9));
-  
-    if (isAtLeftEdge || isAtRightEdge || checkCollision()) {
-        currentTetromino = rotate(rotate(rotate(currentTetromino))); // Rotate back to the original orientation
-        currentPosition = originalPosition;
+  draw() {
+    const cells = this.gameBoard.cells;
+    this.shape.forEach((row, y) => {
+      row.forEach((value, x) => {
+        if (value === 1) {
+          const cellIndex = (this.currentPosition.y + y) * 10 + this.currentPosition.x + x;
+          if (cells[cellIndex]) { // Check if cell exists
+            cells[cellIndex].classList.add('tetromino');
+          }
+        }
+      });
+    });
+  }
+  undraw() {
+    // Corrected logic to undraw the Tetromino
+    const cells = this.gameBoard.cells;
+    this.shape.forEach((row, y) => {
+      row.forEach((value, x) => {
+        if (value === 1) {
+          const cellIndex = (this.currentPosition.y + y) * 10 + this.currentPosition.x + x;
+          if (cells[cellIndex]) { // Check if cell exists before trying to remove class
+            cells[cellIndex].classList.remove('tetromino');
+          }
+        }
+      });
+    });
+  }
+  moveDown() {
+    this.undraw(); // First, remove the current drawing
+    this.currentPosition.y++; // Update y position
+    // if(this.gameBoard.checkGameOver()){
+    //   // console.log('test')
+    // }
+    if (this.gameBoard.checkCollision()) {
+        this.currentPosition.y; // Revert the move if there's a collision
+        this.gameBoard.lockTetromino(); // Lock the Tetromino in place
+        this.gameBoard.clearLines(); // Clear any completed lines
+        this.gameBoard.spawnTetromino(); // Spawn a new Tetromino
+    } else {
+        this.draw(); // Redraw at the new position
     }
-  
-    drawTetromino();
-    // Logic to rotate the tetromino
-  }
-
-  // Other methods for tetromino manipulation
+}
+moveLeft() {
+  this.undraw();
+  const newPosition = { ...this.currentPosition, x: this.currentPosition.x - 1 };
+  if (!this.gameBoard.checkCollisionAfterMove(this, 'left')) {
+    this.currentPosition.x--;
+}
+  this.draw();
 }
 
-// Fonction de rotation
-function rotate(tetromino) {
-  // Créer une copie profonde du tétrimino
-  let copy = JSON.parse(JSON.stringify(tetromino));
+moveRight() {
+  this.undraw();
+  const newPosition = { ...this.currentPosition, x: this.currentPosition.x + 1 };
+  if (!this.gameBoard.checkCollisionAfterMove(this, 'right')) {
+    this.currentPosition.x++;
+}
+  this.draw();
+}
 
-  // Inverser chaque rangée pour obtenir une rotation dans le sens horaire
-  for (let i = 0; i < copy.length; i++) {
-      copy[i].reverse();
-  }
+rotate() {
+  const originalPosition = this.currentPosition.x;
+  let offset = 1;
+  this.undraw();
+  this.shape = this.rotateShape(this.shape);
 
-  // Échanger les rangées et les colonnes
-  for (let i = 0; i < copy.length; i++) {
-      for (let j = 0; j < i; j++) {
-          [copy[i][j], copy[j][i]] = [copy[j][i], copy[i][j]];
+  // Check for collision and adjust if necessary
+  while (this.gameBoard.checkCollisionAfterRotate(this)) {
+      this.currentPosition.x += offset;
+      offset = -(offset + (offset > 0 ? 1 : -1));
+      if (offset > this.shape[0].length) {
+          this.rotateShape(this.shape, true); // Revert if we can't find a valid rotation position
+          this.currentPosition.x = originalPosition;
+          return;
       }
   }
 
-  return copy;
+  this.draw();
 }
 
+rotateShape(matrix, reverse = false) {
+  // Transpose + reverse = rotate 90 degrees
+  const rotatedShape = matrix[0].map((val, index) =>
+      matrix.map(row => reverse ? row[index] : row[row.length - 1 - index])
+  );
+  return rotatedShape;
+}
 
-
-
-
-
+  // Other methods as needed (e.g., moveLeft, moveRight)
+}
 
 //  random tetromino 
 function getRandomTetromino() {
@@ -140,46 +372,11 @@ function getRandomTetromino() {
   return tetrominoes[randomIndex];
 }
 
-
-
 let currentTetromino;
 let currentRotation = 0; // This will track the current rotation state of the Tetromino
 let currentPosition = 4; // Adjust this to position the Tetromino at the top center
 
 
-
-function drawTetromino() {
-  const cells = document.querySelectorAll('#tetris-board div');
-
-    currentTetromino.forEach((row, y) => {
-        row.forEach((value, x) => {
-            if (value === 1) {
-              if (cells[currentPosition + y * 10 + x].classList.contains('locked')) {
-                console.log('Tetromino GAME OVER !!!!!!');
-                return;
-              }            
-                cells[currentPosition + y * 10 + x].classList.add('tetromino')
-            }
-        });
-    });
-}
-
-function undrawTetromino() {
-  const cells = document.querySelectorAll('#tetris-board div');
-  currentTetromino.forEach((row, y) => {
-      row.forEach((value, x) => {
-          if (value === 1) {
-              cells[currentPosition + y * 10 + x].classList.remove('tetromino');
-          }
-      });
-  });
-}
-
-function moveDown() {
-  undrawTetromino(); // Remove the Tetromino from its current position
-  currentPosition += 10; // Move down one row in a 10x20 grid
-  drawTetromino(); // Draw the Tetromino in the new position
-}
 
 function checkCollision() {
   const cells = document.querySelectorAll('#tetris-board div');
@@ -202,162 +399,34 @@ function checkCollision() {
   });
 }
 
-function lockTetromino() {
-  const cells = document.querySelectorAll('#tetris-board div');
-  currentTetromino.forEach((row, y) => {
-      row.forEach((value, x) => {
-          if (value === 1) {
-              cells[currentPosition + x + y * 10].classList.add('locked');
-          }
-      });
-  });
-}
-
-
-
-function clearLines() {
-  let linesCleared = 0;
-  const cells = Array.from(document.querySelectorAll('#tetris-board div'));
-  
-  for (let i = 0; i < 20; i++) {
-    const rowStart = i * 10;
-    const row = cells.slice(rowStart, rowStart + 10);
-
-    if (row.every(cell => cell.classList.contains('locked'))) {
-      linesCleared++;
-      // Clear the full line
-      row.forEach(cell => cell.classList.remove('locked', 'tetromino'));
-
-      // Move down all the rows above the cleared line
-      for (let j = i; j >= 0; j--) {
-        const currentRowStart = j * 10;
-        const aboveRowStart = (j - 1) * 10;
-
-        cells.slice(aboveRowStart, aboveRowStart + 10).forEach((cell, index) => {
-          if (cell.classList.contains('locked')) {
-            cells[currentRowStart + index].classList.add('locked', 'tetromino');
-            cell.classList.remove('locked', 'tetromino');
-          }
-        });
-      }
-
-      // Adjust index to recheck the same row in the next iteration (since all rows above have shifted down)
-      i--;
-    }
-  }
-
-  // Handle score update or other game logic if lines are cleared
-  if (linesCleared > 0) {
-   
-    // Update score or game speed, if needed
-    score += calculateScore(linesCleared);
-    const scoreElement = document.getElementById('score')
-    scoreElement.textContent = score;
-    
-    console.log(calculateScore(linesCleared));
-  }
-}
-
-function calculateScore(lines) {
-  switch (lines) {
-    case 1:
-      return 100; // Single line
-    case 2:
-      return 300; // Double line
-    case 3:
-      return 500; // Triple line
-    case 4:
-      return 800; // Tetris
-    default:
-      return 0;
-  }
-}
-
-
-function GameOver() {
- 
-}
 
 // CLAVIER
-document.addEventListener('keydown', event => {
-  if (event.key === "ArrowLeft") {
-      moveLeft();
-  } else if (event.key === "ArrowRight") {
-      moveRight();
+function handleKeydown(event) {
+  if (!gameBoard.currentTetromino) return;
+
+  switch (event.key) {
+      case "ArrowLeft":
+          gameBoard.currentTetromino.moveLeft();
+          break;
+      case "ArrowRight":
+          gameBoard.currentTetromino.moveRight();
+          break;
+      case "ArrowDown":
+          gameBoard.currentTetromino.moveDown();
+          break;
+      case "r":
+      case "R":
+          gameBoard.currentTetromino.rotate();
+          break;
+      // Add other controls as needed
   }
-  if (event.key === "ArrowLeft") {
-    moveLeft();
-} else if (event.key === "ArrowRight") {
-    moveRight();
-} else if (event.key.toLowerCase() === 'r') {
-    // rotateTetromino();
 }
 
-});
-function checkCollisionAfterMove(direction) {
-  const shift = direction === 'left' ? -1 : 1; // -1 for left, 1 for right
-  const cells = document.querySelectorAll('#tetris-board div');
+document.addEventListener('keydown', handleKeydown)
 
-  return currentTetromino.some((row, y) => {
-    return row.some((cell, x) => {
-      if (cell === 1) {
-        let nextPos = currentPosition + x + y * 10 + shift; // Calculate next position based on direction
-        // Check if next position is within board boundaries
-        if (nextPos >= 0 && nextPos < cells.length) {
-          // Check for collision with locked tetromino
-          if (cells[nextPos].classList.contains('locked')) {
-            return true;
-          }
-        }
-      }
-      return false;
-    });
-  });
-}
 
-function moveLeft() {
-  undrawTetromino();
-
-  // Check if the tetromino is at the left edge or if there's a collision on the left
-  const isAtLeftEdge = currentTetromino.some(row => 
-    row.some((cell, x) => cell === 1 && (currentPosition + x) % 10 === 0)
-  );
-
-  if (!isAtLeftEdge && !checkCollisionAfterMove('left')) {
-    currentPosition -= 1; // Move left by one position
-  }
-
-  drawTetromino();
-}
-
-function moveRight() {
-  undrawTetromino();
-
-  // Vérifier si le tétrimino est au bord droit
-  const isAtRightEdge = currentTetromino.some(row => 
-      row.some((cell, x) => cell === 1 && (currentPosition + x) % 10 === 9)
-  );
-
-  if (!isAtRightEdge) currentPosition += 1;
-  
-  // Vérifier la collision après le déplacement
-  if (checkCollisionAfterMove()) {
-      currentPosition -= 1;
-  }
-
-  drawTetromino();
-}
 function gameLoop() {  
-  // Vérifier d'abord si le mouvement vers le bas est possible
-  if (checkCollision()) {
-    
-    lockTetromino();
-    clearLines()
-    spawnTetromino();
-} else {
-      moveDown();  // Continue de déplacer le tétrimino vers le bas
-  }
+    gameBoard.currentTetromino.moveDown();
 }
 
-setInterval(gameLoop, 200); // Pour ajuster le temps
-
+let gameLoopInterval; // Declare the variable to store the interval ID

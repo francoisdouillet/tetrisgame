@@ -9,11 +9,16 @@
   <body>
     <div class="container">
       <div class="title"><p>Tetris</p></div>
-    <div id="tetris-board"></div>
-    <div id="score-board">
-      Score: <span id="score">0</span>
+      <div id="tetris-board"></div>
+      <div id="score-board">Score: <span id="score">0</span></div>
     </div>
-  </div>
+    <div id="gameOverModal" class="modal">
+      <div class="modal-content">
+        <span class="close">&times;</span>
+        <p>Game Over!</p>
+        <button id="restartButton">Restart</button>
+      </div>
+    </div>    
     <script src="main.js"></script>
   </body>
 </html>
