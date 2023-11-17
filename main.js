@@ -1,14 +1,8 @@
 document.addEventListener("DOMContentLoaded", () => {
-  const board = document.getElementById("tetris-board");
-
-  for (let i = 0; i < 200; i++) {
-    const cell = document.createElement("div");
-    board.appendChild(cell);
-  }
-  spawnTetromino();
+  const gameBoard = new GameBoard("tetris-board");
+  gameBoard.spawnTetromino();
+  // Set up game loop and other event listeners
 });
-
-
 let score = 0
 // Formes Tetris
 const I_Tetromino = [
@@ -55,7 +49,64 @@ const Z_Tetromino = [
 
 const tetrominoes = [I_Tetromino, J_Tetromino, L_Tetromino, O_Tetromino, S_Tetromino, T_Tetromino, Z_Tetromino];
 
+class GameBoard {
+  constructor(boardId) {
+    this.board = document.getElementById(boardId);
+    this.cells = [];
+    this.currentTetromino = null;
+    this.score = 0;
+    this.initBoard();
+  }
 
+  initBoard() {
+    for (let i = 0; i < 200; i++) {
+      const cell = document.createElement("div");
+      this.board.appendChild(cell);
+      this.cells.push(cell);
+    }
+  }
+
+  spawnTetromino() {
+    // Logic to spawn a new tetromino
+    currentTetromino = getRandomTetromino();
+  
+    currentRotation = 0; // Reset rotation state for new Tetromino
+    currentPosition = 4; // Adjust this value to position the new Tetromino at the top center
+
+    // Draw the new Tetromino on the grid
+    drawTetromino();
+  }
+
+  // Other methods such as moveDown, checkCollision, clearLines, etc.
+}
+
+class Tetromino {
+  constructor(shape) {
+    this.shape = shape;
+    this.currentRotation = 0;
+    this.currentPosition = 4; // This might need to be adjusted based on your grid
+  }
+
+  rotate() {
+    const originalPosition = currentPosition;
+    const rotatedTetromino = rotate(currentTetromino);
+    undrawTetromino();
+    currentTetromino = rotatedTetromino;
+  
+    const isAtLeftEdge = currentTetromino.some(row => row.some((cell, x) => cell === 1 && (currentPosition + x) % 10 === 0));
+    const isAtRightEdge = currentTetromino.some(row => row.some((cell, x) => cell === 1 && (currentPosition + x) % 10 === 9));
+  
+    if (isAtLeftEdge || isAtRightEdge || checkCollision()) {
+        currentTetromino = rotate(rotate(rotate(currentTetromino))); // Rotate back to the original orientation
+        currentPosition = originalPosition;
+    }
+  
+    drawTetromino();
+    // Logic to rotate the tetromino
+  }
+
+  // Other methods for tetromino manipulation
+}
 
 // Fonction de rotation
 function rotate(tetromino) {
@@ -77,31 +128,11 @@ function rotate(tetromino) {
   return copy;
 }
 
-function rotateTetromino() {
-  const originalPosition = currentPosition;
-  const rotatedTetromino = rotate(currentTetromino);
-  undrawTetromino();
-  currentTetromino = rotatedTetromino;
-
-  const isAtLeftEdge = currentTetromino.some(row => row.some((cell, x) => cell === 1 && (currentPosition + x) % 10 === 0));
-  const isAtRightEdge = currentTetromino.some(row => row.some((cell, x) => cell === 1 && (currentPosition + x) % 10 === 9));
-
-  if (isAtLeftEdge || isAtRightEdge || checkCollision()) {
-      currentTetromino = rotate(rotate(rotate(currentTetromino))); // Rotate back to the original orientation
-      currentPosition = originalPosition;
-  }
-
-  drawTetromino();
-}
 
 
 
-// Test rotation
-console.log("Original I Tetromino:", I_Tetromino);
-console.log("Rotated I Tetromino:", rotate(I_Tetromino));
 
-console.log("Original Z Tetromino:", Z_Tetromino);
-console.log("Rotated Z Tetromino:", rotate(Z_Tetromino));
+
 
 //  random tetromino 
 function getRandomTetromino() {
@@ -131,16 +162,6 @@ function drawTetromino() {
             }
         });
     });
-}
-
-function spawnTetromino() {
-     currentTetromino = getRandomTetromino();
-  
-    currentRotation = 0; // Reset rotation state for new Tetromino
-    currentPosition = 4; // Adjust this value to position the new Tetromino at the top center
-
-    // Draw the new Tetromino on the grid
-    drawTetromino();
 }
 
 function undrawTetromino() {
@@ -269,7 +290,7 @@ document.addEventListener('keydown', event => {
 } else if (event.key === "ArrowRight") {
     moveRight();
 } else if (event.key.toLowerCase() === 'r') {
-    rotateTetromino();
+    // rotateTetromino();
 }
 
 });
